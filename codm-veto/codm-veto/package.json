@@ -1,0 +1,11 @@
+{
+  "name": "codm-map-veto",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CODM pick/ban veto rooms with join codes, for Vercel + Supabase",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
+  }
+}
