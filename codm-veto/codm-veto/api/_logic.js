@@ -1,12 +1,12 @@
 // Pure room logic: no network, no database. The route handlers load a room, call runOp, and save the result.
-import { FORMATS, newState, apply, currentStep, randomAct, cleanMeta, poolProblems, TURN_MS } from "../public/veto-engine.js";
+import { FORMATS, newState, apply, currentStep, randomAct, cleanMeta, poolProblems, TURN_MS } from "../src/lib/veto-engine.js";
 
 // Returns {data} or {error} when the map pool can't support the chosen format.
 export function createRoomData(meta, now) {
   const m = cleanMeta(meta);
   const problems = poolProblems(m);
   if (problems.length) return { error: problems[0].message };
-  return { data: { meta: m, state: newState(m), history: [], seats: { t1: null, t2: null }, turnAt: now, createdAt: now } };
+  return { data: { meta: m, state: newState(m), history: [], seats: { t1: null, t2: null }, started: false, turnAt: now, createdAt: now } };
 }
 
 const fail = (status, error) => ({ status, reply: { error } });
@@ -25,7 +25,7 @@ export function runOp(data, keys, body, now, hash, newKey) {
     if (!t) return fail(400, "Pick Team 1 or Team 2");
     if (data.seats[`t${t}`]) return fail(409, "That captain seat is already taken");
     const seatKey = newKey();
-    const next = { ...data, seats: { ...data.seats, [`t${t}`]: { name: cleanName(body.name), at: now } } };
+    const next = { ...data, seats: { ...data.seats, [`t${t}`]: { name: cleanName(body.name), at: now, ready: false } } };
     return { status: 200, reply: { seatKey, team: t }, data: next, keys: { [`t${t}_hash`]: hash(seatKey) } };
   }
 
@@ -33,11 +33,30 @@ export function runOp(data, keys, body, now, hash, newKey) {
     const t = body.team === 2 ? 2 : body.team === 1 ? 1 : 0;
     if (!t) return fail(400, "Pick Team 1 or Team 2");
     if (!holds(t) && !isHost) return fail(403, "Only that captain or the host can free this seat");
+    if (data.started && !isHost) return fail(409, "The veto has started, so only the host can free a seat");
     const next = { ...data, seats: { ...data.seats, [`t${t}`]: null } };
     return { status: 200, reply: { ok: true }, data: next, keys: { [`t${t}_hash`]: null } };
   }
 
+  // Lobby: a captain marks their team ready. The draft opens when both seats are taken and ready.
+  if (op === "ready") {
+    const t = body.team === 2 ? 2 : body.team === 1 ? 1 : 0;
+    if (!t || !holds(t)) return fail(403, "Only that team's captain can change ready");
+    if (data.started) return fail(409, "The veto has already started");
+    const seats = { ...data.seats, [`t${t}`]: { ...data.seats[`t${t}`], ready: body.ready !== false } };
+    const go = !!(seats.t1?.ready && seats.t2?.ready);
+    return { status: 200, reply: { ok: true, started: go }, data: { ...data, seats, started: go, turnAt: go ? now : data.turnAt } };
+  }
+
+  // Host opens the draft without waiting for ready.
+  if (op === "start") {
+    if (!isHost) return fail(403, "Only the host can start the veto");
+    if (data.started) return fail(409, "The veto has already started");
+    return { status: 200, reply: { ok: true, started: true }, data: { ...data, started: true, turnAt: now } };
+  }
+
   if (op === "act" || op === "timeout") {
+    if (data.started === false) return fail(409, "The veto hasn't started yet. Both captains need to be ready");
     const st = currentStep(data.state, meta);
     if (!st) return fail(409, "The veto is already complete");
     if (body.i !== data.state.i) return fail(409, "The veto moved on before your move arrived");

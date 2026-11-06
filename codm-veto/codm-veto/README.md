@@ -1,97 +1,60 @@
 # CODM Map Veto
 
-Pick/ban rooms for Call of Duty: Mobile series. The admin creates a room, shares the 6-character code or the invite link, and the two captains ban, pick and choose starting sides from their own phones. The order is all bans, then all picks, then all starting sides. Who bans and picks each mode follows the CODM World Championship 2026 esports settings.
+Pick/ban rooms for Call of Duty: Mobile series, built with React and [shadcn/ui](https://ui.shadcn.com/).
 
-The site opens on a home page: a create button, a box to join with a code, how a veto runs, the formats, the 2026 map pool, and the rooms you've opened on that device. Creating a room is its own page (`/#new`), and a room is `/#K7QM4X`.
+How a room works:
 
-The site runs on **Vercel**. Rooms are stored in **Supabase**, which also pushes live updates to every open screen.
+1. **Create.** A captain (or a host who isn't playing) sets the teams, format and map pool, and picks which team they're captaining. They get a 6-character code.
+2. **Join.** The other captain enters the code on the home page, types their name and takes the open team.
+3. **Wait.** Both captains see a waiting room with only who's in and who's ready. The draft opens for both of them once both tap **I'm ready**. A host can start it early.
+4. **Draft.** All bans, then all picks, then starting sides. Every map is either banned or played. At the end, **Copy for Discord** gives a summary.
 
-## What's in the folder
+Anyone else who opens the code once both seats are taken can watch but can't make moves.
+
+## Folder layout
 
 | Path | What it is |
 |---|---|
-| `public/index.html`, `public/styles.css`, `public/app.js` | The page people open |
-| `public/veto-engine.js` | Map pools and veto order, shared by the page and the server |
-| `public/images/maps/` | Put your map images here (see below) |
-| `api/` | Vercel server functions: create a room, read it, take a seat, make a move |
+| `src/pages/` | Home, Create, Room (join, waiting room, draft) and Practice |
+| `src/components/ui/` | shadcn/ui components (button, card, input, select, switch, badge, progress…) |
+| `src/components/draft.jsx` | The draft board |
+| `src/lib/veto-engine.js` | Map pools and veto order, shared by the page and the server |
+| `api/` | Vercel server functions: create a room, read it, take a seat, ready, make a move |
 | `supabase/schema.sql` | The two database tables, run once in Supabase |
+| `public/images/maps/` | Your map images |
 
-The server checks every move. Only the captain whose turn it is (or the host with "Act for either team" on) can ban, pick or choose a side. Seat and host keys are stored as hashes in a table browsers can't read.
+## Deploying an update from the old version
 
-## Deploy, step by step
+This version has a build step, so replace the **whole** repository contents, not single files:
 
-### 1. Set up Supabase (about 5 minutes)
+1. On GitHub, delete the old files (or create a fresh repository).
+2. Upload everything from this folder: `api`, `public`, `src`, `supabase`, `index.html`, `package.json`, `package-lock.json`, `vercel.json`, the config files, and this README. Skip `node_modules` and `dist`.
+3. Vercel rebuilds on its own. `vercel.json` tells it to run `npm run build` and serve `dist`, so the Framework Preset can stay on **Other**. If you set **Root Directory** to `codm-veto` before, keep it pointing at the folder that contains `package.json`.
 
-1. Go to [supabase.com](https://supabase.com), sign in, and create a **New project**. Any region close to your players works (Singapore is closest to the Philippines).
-2. When it's ready, open **SQL Editor**, click **New query**, paste everything from `supabase/schema.sql`, and click **Run**.
-3. Open **Project Settings > API Keys** (on some projects it's **Settings > API**). Copy three values:
-   - the **Project URL**
-   - the **anon** or **publishable** key (safe to show in the browser)
-   - the **service_role** or **secret** key (keep this private, it can write anything)
+The Supabase setup and the three environment variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) don't change.
 
-### 2. Put the code on GitHub
+## First-time deploy
 
-Create a new repository and upload this folder (without `node_modules`). GitHub Desktop or the "Upload files" button both work.
-
-### 3. Deploy on Vercel
-
-1. Go to [vercel.com](https://vercel.com), click **Add New > Project**, and import the repository.
-2. Framework preset: **Other**. Leave build settings empty. `vercel.json` already tells Vercel to serve the `public` folder.
-3. Before clicking Deploy, open **Environment Variables** and add:
-
-   | Name | Value |
-   |---|---|
-   | `SUPABASE_URL` | Project URL |
-   | `SUPABASE_ANON_KEY` | anon / publishable key |
-   | `SUPABASE_SERVICE_ROLE_KEY` | service_role / secret key |
-
-4. Click **Deploy**. If you added the variables after deploying, go to **Deployments**, open the latest one and choose **Redeploy**.
-
-Shortcut: the **Supabase** integration in Vercel's Marketplace can create the project and add these variables for you. The server also accepts the names that integration uses (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` and so on). You still need to run `schema.sql` once.
-
-### 4. Check it
-
-Open your Vercel URL. Under "Join with a code" the note should say *Both captains open this same site and enter the code*. If it says rooms aren't connected, the environment variables are missing or the site wasn't redeployed.
-
-Create a room, copy the invite link, and open it on your phone to take a seat.
+1. **Supabase:** create a project (Singapore is closest), open **SQL Editor**, paste `supabase/schema.sql` and click **Run**. From **Project Settings > API Keys**, copy the Project URL, the publishable (anon) key and the secret (service_role) key.
+2. **GitHub:** create a repository and upload this folder's contents so `package.json` is at the top level.
+3. **Vercel:** **Add New > Project**, import the repository, and add the three environment variables above before clicking **Deploy**.
+4. **Check:** the home page shouldn't show "Rooms aren't connected". Create a room, open the invite link on your phone, and join the other team.
 
 ## Map images
 
-Copy your images into `public/images/maps/` with these names (JPG, about 640x400 is plenty):
+Put JPGs in `public/images/maps/` named after the map: `summit.jpg`, `hacienda.jpg`, `combine.jpg`, `takeoff.jpg`, `arsenal.jpg`, `tunisia.jpg`, `firing-range.jpg`, `coastal.jpg`, `slums.jpg`, `meltdown.jpg`, `raid.jpg`, `standoff.jpg`, `crossroads-strike.jpg`. Maps you add in the pool editor use the same rule, for example `nuketown.jpg`. Without an image, the map shows as a plain card.
 
-```
-summit.jpg  hacienda.jpg  combine.jpg  takeoff.jpg  arsenal.jpg
-tunisia.jpg  firing-range.jpg  coastal.jpg  slums.jpg  meltdown.jpg
-raid.jpg  standoff.jpg  crossroads-strike.jpg
-```
-
-A missing image just shows the dark tile with the map name.
-
-## Changing the map pool
-
-**For one room:** use **Map pool** when creating the room. Tap a map to switch it off, type a name and press Add to bring in another map, or use the x on a map you added to remove it. Your pool is remembered in that browser for the next room. Each room keeps the pool it was created with.
-
-How the veto adapts: every mode bans until only the maps that get played are left, so no map is ever left over. Bans alternate, starting with the team that picks first in that mode.
-- Bo5 with the 2026 pool: Hardpoint 5 maps, 2 picks, 3 bans. S&D 5 maps, 2 picks, 3 bans. Control 3 maps, 2 bans, 1 decider.
-- Add a sixth Hardpoint map and it becomes 4 bans; switch one off and it becomes 2.
-- The page won't create a room if a mode has fewer maps than it plays in that format, and it tells you how many it needs.
-
-Maps you add show the plain tile unless you add an image with the matching name, for example `nuketown.jpg` for "Nuketown".
-
-**For every room by default:** edit `MODES` in `public/veto-engine.js`. `FORMATS` in the same file holds who bans and picks in each mode. Push the change to GitHub and Vercel redeploys on its own.
-
-## Running it on your computer
+## Working on it locally
 
 ```
 npm install
 npx vercel dev
 ```
 
-`vercel dev` asks you to log in and link the project the first time, then pulls the environment variables from Vercel.
+`vercel dev` runs the page and the server functions together. `npm run dev` runs only the page, which is enough for practice drafts.
 
-## Good to know
+To add more shadcn components later: `npx shadcn@latest add dialog` (the project already has `components.json`).
 
-- Anyone with the code can watch a room. Taking a seat only needs a name, so share codes in your team channels, not publicly.
-- Seats are tied to the browser that took them. If a captain switches phones, the host frees the seat and they take it again.
-- Rooms stay in the database. The bottom of `schema.sql` has a one-line clean-up you can run now and then.
-- Live updates use Supabase Realtime. If it's blocked, the page falls back to checking every 2 seconds.
+## Changing the default pool or veto order
+
+Edit `MODES` and `FORMATS` in `src/lib/veto-engine.js`. Each mode bans until only the maps that get played are left, so the ban count follows the pool size.

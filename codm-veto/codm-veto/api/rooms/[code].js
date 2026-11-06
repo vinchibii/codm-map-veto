@@ -1,6 +1,6 @@
 import { db, send, body, hash, newKey, NOT_CONFIGURED } from "../_lib.js";
 import { runOp } from "../_logic.js";
-import { isCode } from "../../public/veto-engine.js";
+import { isCode } from "../../src/lib/veto-engine.js";
 
 // GET  /api/rooms/K7QM4X           -> {rev, data}
 // POST /api/rooms/K7QM4X  {op,...} -> claim | free | act | timeout | undo | restart | whoami
